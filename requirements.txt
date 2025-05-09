@@ -1,0 +1,11 @@
+psutil
+PySide6>=6.4.0
+# Platform-specific libraries (install manually based on your OS):
+# For Windows:
+# pywin32
+# For macOS:
+# pyobjc-core
+# pyobjc-framework-Cocoa
+# pyobjc-framework-Quartz
+# For Linux (X11):
+# python-xlib 
