@@ -50,11 +50,14 @@ def log_activity(app_name, window_title, duration_seconds, activity_type="genera
     conn.close()
 
 def get_activity_summary(limit=10):
-    """Retrieves a summary of recent activities."""
+    """Retrieves a summary of recent activities with China timezone."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
+    # 直接在SQL中转换时区，返回标准格式元组列表
     cursor.execute('''
-        SELECT timestamp, app_name, window_title, duration_seconds, activity_type
+        SELECT datetime(timestamp, '+8 hours') as timestamp,
+               app_name, window_title, duration_seconds, activity_type
         FROM activity_log
         ORDER BY timestamp DESC
         LIMIT ?
