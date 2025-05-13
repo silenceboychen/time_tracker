@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QMessageBox, QComboBox,
     QTimeEdit, QDateEdit, QSplitter, QFrame, QStatusBar
 )
-from PySide6.QtCore import Qt, QTimer, QDate, Signal, Slot, QSize
+from PySide6.QtCore import Qt, QTimer, QDate, Signal, Slot, QSize, QThread
 from PySide6.QtGui import QIcon, QAction
 
 import sys
@@ -23,6 +23,28 @@ from core import data_store
 
 logger = logging.getLogger(__name__)
 
+# 定义一个包装追踪服务的工作线程类
+class TrackerThread(QThread):
+    """用于在后台运行追踪服务的线程"""
+    
+    def __init__(self, tracker_service):
+        super(TrackerThread, self).__init__()
+        self.tracker_service = tracker_service
+        
+    def run(self):
+        """线程运行时执行追踪服务"""
+        try:
+            # 运行追踪服务（这会阻塞线程直到服务停止）
+            self.tracker_service.run()
+        except Exception as e:
+            logger.error(f"追踪线程出错: {e}", exc_info=True)
+    
+    def stop(self):
+        """安全停止追踪服务和线程"""
+        if self.tracker_service:
+            self.tracker_service.stop()
+        self.wait(3000)  # 等待最多3秒让线程结束
+
 class MainWindow(QMainWindow):
     """时间追踪应用的主窗口"""
     
@@ -35,6 +57,7 @@ class MainWindow(QMainWindow):
         
         # 初始化追踪服务(但不启动)
         self.tracker_service = None
+        self.tracker_thread = None
         self.is_tracking = False
         self.update_timer = QTimer(self)
         self.update_timer.timeout.connect(self.refresh_data)
@@ -172,42 +195,50 @@ class MainWindow(QMainWindow):
         if not self.is_tracking:
             # 开始追踪
             try:
+                # 创建追踪服务和线程
                 self.tracker_service = TimeTrackerService(check_interval=5)
-                # 创建一个单独的线程来运行追踪服务
-                # 注意：此简化实现在当前线程中运行，实际应用中应使用QThread
-                # 创建一个定时器来模拟定时更新 - 实际应用中应使用信号/槽通信
+                self.tracker_thread = TrackerThread(self.tracker_service)
+                
+                # 启动线程，这会调用TrackerThread的run方法
+                logger.info("启动追踪线程...")
+                self.tracker_thread.start()
+                
+                # 启动UI更新定时器
                 self.update_timer.start(10000)  # 每10秒更新一次UI
                 
-                # 在实际应用中，应使用类似以下代码:
-                # self.tracker_thread = QThread()
-                # self.tracker_service.moveToThread(self.tracker_thread)
-                # self.tracker_thread.started.connect(self.tracker_service.run)
-                # self.tracker_thread.start()
-                
-                # 模拟开始追踪的效果
+                # 更新UI状态
                 self.is_tracking = True
                 self.btn_start_stop.setText("停止追踪")
                 self.status_label.setText("正在追踪活动...")
                 self.statusBar().showMessage("追踪服务已开始", 3000)
+                
+                # 立即刷新一次数据
+                QTimer.singleShot(5000, self.refresh_data)
             except Exception as e:
-                logger.error(f"启动追踪服务失败: {e}")
+                logger.error(f"启动追踪服务失败: {e}", exc_info=True)
                 QMessageBox.critical(self, "错误", f"启动追踪服务失败: {e}")
         else:
             # 停止追踪
             try:
+                # 停止UI更新定时器
                 self.update_timer.stop()
                 
-                # 在实际应用中，应使用类似以下代码:
-                # self.tracker_service.stop()
-                # self.tracker_thread.quit()
-                # self.tracker_thread.wait()
+                # 安全停止追踪线程和服务
+                if self.tracker_thread:
+                    logger.info("停止追踪线程...")
+                    self.tracker_thread.stop()
+                    self.tracker_thread = None
                 
+                # 更新UI状态
                 self.is_tracking = False
                 self.btn_start_stop.setText("开始追踪")
                 self.status_label.setText("当前未追踪")
                 self.statusBar().showMessage("追踪服务已停止", 3000)
+                
+                # 立即刷新一次数据
+                self.refresh_data()
             except Exception as e:
-                logger.error(f"停止追踪服务失败: {e}")
+                logger.error(f"停止追踪服务失败: {e}", exc_info=True)
                 QMessageBox.critical(self, "错误", f"停止追踪服务失败: {e}")
         
     def refresh_data(self):
@@ -321,9 +352,9 @@ class MainWindow(QMainWindow):
             
             if reply == QMessageBox.Yes:
                 # 停止追踪服务
-                if self.tracker_service:
+                if self.tracker_thread:
                     self.update_timer.stop()
-                    # 在实际应用中: self.tracker_service.stop()
+                    self.tracker_thread.stop()
                 event.accept()
             else:
                 event.ignore()
