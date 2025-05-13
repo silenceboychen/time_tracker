@@ -105,11 +105,16 @@ class MainWindow(QMainWindow):
         self.btn_apply_filter = QPushButton("应用过滤")
         self.btn_apply_filter.clicked.connect(self.apply_filters)
         
+        # 清除过滤器
+        self.btn_clear_filter = QPushButton("清除过滤")
+        self.btn_clear_filter.clicked.connect(self.clear_filters)
+        
         # 添加控件到控制布局
         control_layout.addWidget(self.btn_start_stop)
         control_layout.addWidget(self.btn_refresh)
         control_layout.addLayout(date_layout)
         control_layout.addWidget(self.btn_apply_filter)
+        control_layout.addWidget(self.btn_clear_filter)
         control_layout.addStretch()
         
         # 标签页
@@ -246,8 +251,15 @@ class MainWindow(QMainWindow):
         try:
             self.statusBar().showMessage("正在刷新数据...")
             
-            # 获取活动数据
-            activities = data_store.get_activity_summary(limit=50)  # 获取更多条目
+            # 获取所选日期（如果有过滤条件）
+            filtered_date = None
+            if hasattr(self, 'is_filtered') and self.is_filtered:
+                qdate = self.date_selector.date()
+                filtered_date = qdate.toString("yyyy-MM-dd")
+                self.statusBar().showMessage(f"正在获取 {filtered_date} 的活动数据...")
+            
+            # 获取活动数据，应用日期过滤（如果有）
+            activities = data_store.get_activity_summary(limit=50, date=filtered_date)
             
             # 更新活动表格
             self.activities_table.setRowCount(0)  # 清空表格
@@ -279,7 +291,12 @@ class MainWindow(QMainWindow):
             # 更新摘要表格 (简单实现)
             self.update_summary_table(activities)
             
-            self.statusBar().showMessage("数据已刷新", 3000)
+            # 更新状态栏显示
+            if filtered_date:
+                self.statusBar().showMessage(f"{filtered_date} 的数据已刷新，共 {len(activities)} 条记录", 3000)
+            else:
+                self.statusBar().showMessage(f"数据已刷新，共 {len(activities)} 条记录", 3000)
+                
         except Exception as e:
             logger.error(f"刷新数据失败: {e}")
             self.statusBar().showMessage(f"刷新数据失败: {e}", 5000)
@@ -322,9 +339,25 @@ class MainWindow(QMainWindow):
             self.summary_table.setItem(row_idx, 2, percent_item)
     
     def apply_filters(self):
-        """应用过滤器"""
-        # TODO: 实现真正的日期过滤
-        self.statusBar().showMessage("日期过滤功能尚未实现", 3000)
+        """应用日期过滤器"""
+        selected_date = self.date_selector.date()
+        formatted_date = selected_date.toString("yyyy-MM-dd")
+        
+        # 设置过滤状态
+        self.is_filtered = True
+        
+        # 更新状态栏
+        self.statusBar().showMessage(f"正在应用日期过滤: {formatted_date}...")
+        
+        # 刷新数据以应用过滤器
+        self.refresh_data()
+    
+    def clear_filters(self):
+        """清除日期过滤器"""
+        self.date_selector.setDate(QDate.currentDate())
+        self.is_filtered = False
+        self.statusBar().showMessage("已清除日期过滤")
+        self.refresh_data()
     
     def export_data(self):
         """导出数据功能"""

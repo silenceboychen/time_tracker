@@ -49,19 +49,51 @@ def log_activity(app_name, window_title, duration_seconds, activity_type="genera
     conn.commit()
     conn.close()
 
-def get_activity_summary(limit=10):
-    """Retrieves a summary of recent activities with China timezone."""
+def get_activity_summary(limit=10, date=None):
+    """
+    检索活动摘要记录，支持按日期过滤。
+    
+    参数:
+        limit (int): 返回记录的最大数量
+        date (str, 可选): 按指定日期过滤数据，格式'YYYY-MM-DD'
+    
+    返回:
+        list: 活动记录列表
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # 直接在SQL中转换时区，返回标准格式元组列表
-    cursor.execute('''
+    # 构建SQL查询
+    query = '''
         SELECT datetime(timestamp, '+8 hours') as timestamp,
                app_name, window_title, duration_seconds, activity_type
         FROM activity_log
+    '''
+    
+    params = []
+    
+    # 如果指定了日期，添加日期筛选条件
+    if date:
+        # 日期在数据库中是UTC时间，但我们需要按北京时间(+8小时)过滤
+        # 首先获取指定日期的开始时间和结束时间(北京时间)
+        date_start = f"{date} 00:00:00"
+        date_end = f"{date} 23:59:59"
+        
+        # 然后转换回UTC时间进行查询(-8小时)
+        query += '''
+            WHERE date(datetime(timestamp, '+8 hours')) = date(?)
+        '''
+        params.append(date)
+    
+    # 添加排序和限制
+    query += '''
         ORDER BY timestamp DESC
         LIMIT ?
-    ''', (limit,))
+    '''
+    params.append(limit)
+    
+    # 执行查询
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     return rows
