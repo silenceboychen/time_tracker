@@ -25,6 +25,7 @@ time_tracker/
 │   └── __init__.py
 ├── main.py                   # 应用程序的主入口点
 ├── README.md                 # 本文件
+├── LICENSE                   # MIT许可证
 └── requirements.txt          # Python 包依赖
 ```
 
@@ -176,4 +177,8 @@ time_tracker/
 *   **特定平台库的 "ModuleNotFoundError"：** 确保您已为您的操作系统安装了正确的库。
 *   **权限 (macOS)：** 如果窗口标题未正确检测，请检查辅助功能权限。
 *   **X11 错误 (Linux)：** 如果在 Wayland 上，`python-xlib` 可能无法按预期工作。
-*   **GUI 启动错误：** 如果启动 GUI 时出现错误，确保已安装 `PySide6`（`pip install PySide6`）。 
+*   **GUI 启动错误：** 如果启动 GUI 时出现错误，确保已安装 `PySide6`（`pip install PySide6`）。
+
+## 许可证
+
+本项目采用 MIT 许可证。查看 [LICENSE](LICENSE) 文件了解详细信息。 
